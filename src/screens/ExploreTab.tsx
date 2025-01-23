@@ -25,6 +25,7 @@ const ExploreScreen = () => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<keyof SortOptions>('none');
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
     loadProducts();
@@ -39,6 +40,14 @@ const ExploreScreen = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleFavorite = (productId: string) => {
+    setFavorites(prevFavorites => 
+      prevFavorites.includes(productId)
+        ? prevFavorites.filter(id => id !== productId)
+        : [...prevFavorites, productId]
+    );
   };
 
   const getFilteredProducts = () => {
@@ -124,6 +133,22 @@ const ExploreScreen = () => {
     </Modal>
   );
 
+  const renderProductCard = ({ item }: { item: Product }) => (
+    <View style={styles.productCardContainer}>
+      <ProductCard product={item} />
+      <TouchableOpacity 
+        style={styles.favoriteIconContainer}
+        onPress={() => toggleFavorite(item.id.toString())}
+      >
+        <Feather 
+          name="heart" 
+          size={24} 
+          color={favorites.includes(item.id.toString()) ? 'red' : 'gray'}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -145,7 +170,7 @@ const ExploreScreen = () => {
 
       <FlatList
         data={getFilteredProducts()}
-        renderItem={({ item }) => <ProductCard product={item} />}
+        renderItem={renderProductCard}
         keyExtractor={item => item.id.toString()}
       />
     </View>
@@ -228,6 +253,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  productCardContainer: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  favoriteIconContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
 
