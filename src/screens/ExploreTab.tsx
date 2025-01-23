@@ -12,20 +12,27 @@ import Feather from '@expo/vector-icons/Feather';
 import { Product } from "../types/product";
 import ProductCard from "../ui/components/ProductCard";
 import { fetchProducts } from "../servicer/api";
+import { useFavorites } from "../context/FavoriteContext";
 
-interface SortOptions {
-  rating_asc: string;
-  rating_desc: string;
-  none: string;
+interface FilterModalProps {
+  categories: string[];
+  selectedCategory: string;
+  sortBy: SortOption;
+  onCategoryChange: (category: string) => void;
+  onSortChange: (sort: SortOption) => void;
+  onClose: () => void;
 }
+
+type SortOption = 'none' | 'rating_asc' | 'rating_desc' | 'price_asc' | 'price_desc';
 
 const ExploreScreen = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<keyof SortOptions>('none');
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortOption>('none');
+  
+  const { favorites, addFavorite, removeFavorite } = useFavorites();
 
   useEffect(() => {
     loadProducts();
@@ -42,12 +49,14 @@ const ExploreScreen = () => {
     }
   };
 
-  const toggleFavorite = (productId: string) => {
-    setFavorites(prevFavorites => 
-      prevFavorites.includes(productId)
-        ? prevFavorites.filter(id => id !== productId)
-        : [...prevFavorites, productId]
-    );
+  const toggleFavorite = (product: Product) => {
+    favorites.some(p => p.id === product.id) 
+      ? removeFavorite(product.id.toString())
+      : addFavorite(product);
+  };
+
+  const getCategories = () => {
+    return ['all', ...new Set(products.map(p => p.category))];
   };
 
   const getFilteredProducts = () => {
@@ -57,21 +66,37 @@ const ExploreScreen = () => {
       filtered = filtered.filter(p => p.category === selectedCategory);
     }
 
-    if (sortBy === 'rating_asc') {
-      filtered.sort((a, b) => Number(a.rating) - Number(b.rating));
-    } else if (sortBy === 'rating_desc') {
-      filtered.sort((a, b) => Number(b.rating) - Number(a.rating));
+    switch (sortBy) {
+      case 'rating_asc':
+        filtered.sort((a, b) => Number(a.rating) - Number(b.rating));
+        break;
+      case 'rating_desc':
+        filtered.sort((a, b) => Number(b.rating) - Number(a.rating));
+        break;
+      case 'price_asc':
+        filtered.sort((a, b) => Number(a.price) - Number(b.price));
+        break;
+      case 'price_desc':
+        filtered.sort((a, b) => Number(b.price) - Number(a.price));
+        break;
     }
 
     return filtered;
   };
 
-  const renderFilterModal = () => (
+  const FilterModal: React.FC<FilterModalProps> = ({
+    categories,
+    selectedCategory,
+    sortBy,
+    onCategoryChange,
+    onSortChange,
+    onClose
+  }) => (
     <Modal
       animationType="slide"
       transparent={true}
-      visible={modalVisible}
-      onRequestClose={() => setModalVisible(false)}
+      visible={true}
+      onRequestClose={onClose}
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
@@ -80,17 +105,14 @@ const ExploreScreen = () => {
           <View style={styles.filterSection}>
             <Text style={styles.filterLabel}>Categoria</Text>
             <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[styles.filterButton, selectedCategory === 'all' && styles.activeFilter]}
-                onPress={() => setSelectedCategory('all')}
-              >
-                <Text>Tutte</Text>
-              </TouchableOpacity>
-              {Array.from(new Set(products.map(p => p.category))).map(cat => (
+              {categories.map(cat => (
                 <TouchableOpacity
                   key={cat}
-                  style={[styles.filterButton, selectedCategory === cat && styles.activeFilter]}
-                  onPress={() => setSelectedCategory(cat)}
+                  style={[
+                    styles.filterButton, 
+                    selectedCategory === cat && styles.activeFilter
+                  ]}
+                  onPress={() => onCategoryChange(cat)}
                 >
                   <Text>{cat}</Text>
                 </TouchableOpacity>
@@ -99,32 +121,32 @@ const ExploreScreen = () => {
           </View>
 
           <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>Ordina per recensioni</Text>
+            <Text style={styles.filterLabel}>Ordina per</Text>
             <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[styles.filterButton, sortBy === 'none' && styles.activeFilter]}
-                onPress={() => setSortBy('none')}
-              >
-                <Text>Nessun ordine</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterButton, sortBy === 'rating_desc' && styles.activeFilter]}
-                onPress={() => setSortBy('rating_desc')}
-              >
-                <Text>Più alte</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterButton, sortBy === 'rating_asc' && styles.activeFilter]}
-                onPress={() => setSortBy('rating_asc')}
-              >
-                <Text>Più basse</Text>
-              </TouchableOpacity>
+              {[
+                { key: 'none', label: 'Nessun ordine' },
+                { key: 'rating_desc', label: 'Recensioni più alte' },
+                { key: 'rating_asc', label: 'Recensioni più basse' },
+                { key: 'price_desc', label: 'Prezzo più alto' },
+                { key: 'price_asc', label: 'Prezzo più basso' }
+              ].map(option => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.filterButton, 
+                    sortBy === option.key && styles.activeFilter
+                  ]}
+                  onPress={() => onSortChange(option.key as SortOption)}
+                >
+                  <Text>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => setModalVisible(false)}
+            onPress={onClose}
           >
             <Text style={styles.closeButtonText}>Applica</Text>
           </TouchableOpacity>
@@ -138,12 +160,12 @@ const ExploreScreen = () => {
       <ProductCard product={item} />
       <TouchableOpacity 
         style={styles.favoriteIconContainer}
-        onPress={() => toggleFavorite(item.id.toString())}
+        onPress={() => toggleFavorite(item)}
       >
         <Feather 
           name="heart" 
           size={24} 
-          color={favorites.includes(item.id.toString()) ? 'red' : 'gray'}
+          color={favorites.some(p => p.id === item.id) ? 'red' : 'gray'}
         />
       </TouchableOpacity>
     </View>
@@ -166,7 +188,16 @@ const ExploreScreen = () => {
         <Feather name="filter" size={24} color="#000" />
       </TouchableOpacity>
 
-      {renderFilterModal()}
+      {modalVisible && (
+        <FilterModal
+          categories={getCategories()}
+          selectedCategory={selectedCategory}
+          sortBy={sortBy}
+          onCategoryChange={setSelectedCategory}
+          onSortChange={setSortBy}
+          onClose={() => setModalVisible(false)}
+        />
+      )}
 
       <FlatList
         data={getFilteredProducts()}
@@ -196,10 +227,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -266,10 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 5,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
