@@ -13,6 +13,7 @@ export const ProductFilters = ({ onFilterChange, categories }: ProductFiltersPro
 
   const handleFiltersChange = (category: string, sort: string) => {
     setSelectedCategory(category);
+    // Update the state of selectedSort here as well
     setSelectedSort(sort);
     onFilterChange(category, sort);
   };
@@ -31,7 +32,7 @@ export const ProductFilters = ({ onFilterChange, categories }: ProductFiltersPro
           {categories.map((category) => (
             <Picker.Item key={category} label={category} value={category} />
           ))}
-        </Picker>
+        </Picker>      
       </View>
 
       <View style={styles.filterSection}>
